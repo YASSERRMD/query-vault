@@ -1,0 +1,48 @@
+# Rust build artifacts
+/target/
+debug/
+release/
+
+# Cargo lock for libraries (keep for binaries)
+# Uncomment if this is a library project
+# Cargo.lock
+
+# Rust generated files
+*.rs.bk
+*.pdb
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Logs
+*.log
+logs/
+
+# Testing artifacts
+coverage/
+*.profraw
+*.profdata
+
+# Documentation build
+/doc/
+target/doc/
+
+# Backup files
+*.bak
+*.orig
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
