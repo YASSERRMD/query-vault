@@ -3,6 +3,7 @@
 use crate::buffer::MetricsBuffer;
 use crate::db::Database;
 use crate::models::QueryMetric;
+use crate::routes::metrics::Metrics;
 use crate::services::embedding::EmbeddingService;
 use std::sync::Arc;
 use tokio::sync::broadcast;
@@ -19,6 +20,8 @@ pub struct AppState {
     pub broadcast_tx: broadcast::Sender<(Uuid, QueryMetric)>,
     /// Optional embedding service (loaded if EMBEDDING_MODEL_PATH is set)
     pub embedding_service: Option<Arc<EmbeddingService>>,
+    /// Application metrics for Prometheus
+    pub metrics: Arc<Metrics>,
 }
 
 impl AppState {
@@ -41,6 +44,7 @@ impl AppState {
             metrics_buffer: MetricsBuffer::new(buffer_capacity),
             broadcast_tx,
             embedding_service: embedding_service.map(Arc::new),
+            metrics: Arc::new(Metrics::new()),
         }
     }
 }

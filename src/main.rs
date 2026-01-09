@@ -11,7 +11,7 @@ mod tasks;
 
 use axum::{
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 use std::net::SocketAddr;
 use std::path::Path;
@@ -22,19 +22,10 @@ use tracing::{error, info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 use crate::db::Database;
-use crate::models::HealthResponse;
-use crate::routes::{aggregations, ingest, search, ws};
+use crate::routes::{aggregations, health, ingest, metrics, search, ws};
 use crate::services::embedding::EmbeddingService;
 use crate::state::AppState;
 use crate::tasks::{aggregation, anomaly_detection, embedding_task, retention};
-
-/// Health check endpoint
-async fn health() -> Json<HealthResponse> {
-    Json(HealthResponse {
-        status: "ok",
-        version: env!("CARGO_PKG_VERSION"),
-    })
-}
 
 #[tokio::main]
 async fn main() {
@@ -42,7 +33,7 @@ async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "query_vault=debug,tower_http=debug".into()),
+                .unwrap_or_else(|_| "query_vault=info,tower_http=info".into()),
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
@@ -138,8 +129,10 @@ async fn main() {
 
     // Build router
     let app = Router::new()
-        // Health check
-        .route("/health", get(health))
+        // Health and metrics (Kubernetes probes + Prometheus)
+        .route("/health", get(health::health))
+        .route("/ready", get(health::ready))
+        .route("/metrics", get(metrics::prometheus_metrics))
         // Ingestion
         .route("/api/v1/metrics/ingest", post(ingest::ingest_metrics))
         // Aggregations & metrics
@@ -173,7 +166,7 @@ async fn main() {
                 .allow_headers(Any),
         );
 
-    info!("QueryVault starting on {}", listen_addr);
+    info!("QueryVault v{} starting on {}", env!("CARGO_PKG_VERSION"), listen_addr);
     info!("Database: {}", database_url.split('@').last().unwrap_or("***"));
     info!("Buffer capacity: {}", buffer_capacity);
     info!("Broadcast capacity: {}", broadcast_capacity);
