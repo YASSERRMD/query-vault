@@ -39,6 +39,9 @@ coverage/
 /doc/
 target/doc/
 
+# Todo folder (personal development notes)
+/todo/
+
 # Backup files
 *.bak
 *.orig
