@@ -16,7 +16,7 @@ pub struct AnomalyEvent {
 }
 
 /// Background task that detects query anomalies based on execution time.
-/// 
+///
 /// Runs every 60 seconds, computes mean and stddev of recent metrics,
 /// flags queries with z-score > 3, broadcasts to WebSocket clients,
 /// and stores anomalies in the database.
@@ -25,7 +25,7 @@ pub async fn anomaly_detection_task(
     broadcast_tx: broadcast::Sender<(Uuid, QueryMetric)>,
 ) {
     let mut interval = tokio::time::interval(Duration::from_secs(60));
-    
+
     info!("Anomaly detection task started (60s interval)");
 
     loop {

@@ -40,9 +40,9 @@ pub struct SimilarSearchResponse {
 }
 
 /// POST /api/v1/workspaces/:workspace_id/search/similar
-/// 
+///
 /// Searches for queries similar to the provided query text using vector embeddings.
-/// 
+///
 /// Request body:
 /// - query: The SQL query to find similar queries for
 /// - limit: Maximum results (default: 10)
@@ -66,12 +66,7 @@ pub async fn search_similar(
     // Search for similar queries
     let results = state
         .db
-        .search_similar_queries(
-            workspace_id,
-            &embedding,
-            request.limit,
-            request.threshold,
-        )
+        .search_similar_queries(workspace_id, &embedding, request.limit, request.threshold)
         .await?;
 
     Ok(Json(SimilarSearchResponse {
@@ -81,7 +76,7 @@ pub async fn search_similar(
 }
 
 /// GET /api/v1/workspaces/:workspace_id/anomalies
-/// 
+///
 /// Returns recent anomalies detected for the workspace
 pub async fn get_anomalies(
     State(state): State<AppState>,

@@ -167,7 +167,9 @@ impl Database {
                 error_message: row.get("error_message"),
                 started_at: row.get("started_at"),
                 completed_at: row.get("completed_at"),
-                tags: row.get::<Option<Vec<String>>, _>("tags").unwrap_or_default(),
+                tags: row
+                    .get::<Option<Vec<String>>, _>("tags")
+                    .unwrap_or_default(),
             })
             .collect();
 
@@ -186,7 +188,12 @@ impl Database {
             "5s" => "metrics_5s",
             "1m" => "metrics_1m",
             "5m" => "metrics_5m",
-            _ => return Err(AppError::InvalidRequest(format!("Invalid window: {}", window))),
+            _ => {
+                return Err(AppError::InvalidRequest(format!(
+                    "Invalid window: {}",
+                    window
+                )))
+            }
         };
 
         // Using dynamic query since view name can't be parameterized
@@ -262,7 +269,11 @@ impl Database {
         // Convert embedding to pgvector format string
         let embedding_str = format!(
             "[{}]",
-            embedding.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+            embedding
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         );
 
         sqlx::query(
@@ -311,7 +322,11 @@ impl Database {
     ) -> Result<Vec<SimilarQuery>> {
         let embedding_str = format!(
             "[{}]",
-            embedding.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+            embedding
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
         );
 
         let rows = sqlx::query(
@@ -373,7 +388,12 @@ impl Database {
 
         let results = rows
             .into_iter()
-            .map(|row| (row.get::<String, _>("query_text"), row.get::<String, _>("query_hash")))
+            .map(|row| {
+                (
+                    row.get::<String, _>("query_text"),
+                    row.get::<String, _>("query_hash"),
+                )
+            })
             .collect();
 
         Ok(results)
@@ -384,11 +404,7 @@ impl Database {
     // =========================================================================
 
     /// Get metrics statistics for anomaly detection
-    pub async fn get_metrics_stats(
-        &self,
-        workspace_id: Uuid,
-        limit: i64,
-    ) -> Result<MetricsStats> {
+    pub async fn get_metrics_stats(&self, workspace_id: Uuid, limit: i64) -> Result<MetricsStats> {
         let row = sqlx::query(
             r#"
             SELECT 
@@ -455,7 +471,9 @@ impl Database {
                 error_message: row.get("error_message"),
                 started_at: row.get("started_at"),
                 completed_at: row.get("completed_at"),
-                tags: row.get::<Option<Vec<String>>, _>("tags").unwrap_or_default(),
+                tags: row
+                    .get::<Option<Vec<String>>, _>("tags")
+                    .unwrap_or_default(),
             })
             .collect();
 

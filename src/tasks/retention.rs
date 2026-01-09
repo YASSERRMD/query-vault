@@ -6,7 +6,7 @@ use std::time::Duration;
 use tracing::{error, info};
 
 /// Background task that periodically prunes old metrics.
-/// 
+///
 /// This is a backup to TimescaleDB's built-in retention policies.
 /// Runs every 6 hours and deletes raw metrics older than 30 days.
 pub async fn retention_task(db: Arc<Database>) {
@@ -14,7 +14,7 @@ pub async fn retention_task(db: Arc<Database>) {
     tokio::time::sleep(Duration::from_secs(60)).await;
 
     let mut interval = tokio::time::interval(Duration::from_secs(6 * 60 * 60)); // 6 hours
-    
+
     info!("Retention task started (6h interval)");
 
     loop {

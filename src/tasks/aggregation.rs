@@ -1,18 +1,18 @@
 //! Aggregation task - moves metrics from buffer to database
 
-use crate::db::Database;
 use crate::buffer::MetricsBuffer;
+use crate::db::Database;
 use std::sync::Arc;
 use std::time::Duration;
 use tracing::{debug, error, info};
 
 /// Background task that periodically flushes metrics from the buffer to the database.
-/// 
+///
 /// Runs every 5 seconds, pulls a batch from the buffer, and batch-inserts into TimescaleDB.
 /// TimescaleDB continuous aggregates handle the actual aggregation.
 pub async fn aggregation_task(buffer: MetricsBuffer, db: Arc<Database>) {
     let mut interval = tokio::time::interval(Duration::from_secs(5));
-    
+
     info!("Aggregation task started (5s interval)");
 
     loop {
@@ -25,7 +25,10 @@ pub async fn aggregation_task(buffer: MetricsBuffer, db: Arc<Database>) {
         }
 
         let batch_size = batch.len();
-        debug!(batch_size = batch_size, "Flushing metrics batch to database");
+        debug!(
+            batch_size = batch_size,
+            "Flushing metrics batch to database"
+        );
 
         // Insert batch into database
         match db.insert_metrics_batch(&batch).await {
@@ -70,7 +73,7 @@ mod tests {
     #[test]
     fn test_pop_batch() {
         let buffer = MetricsBuffer::new(1000);
-        
+
         for _ in 0..100 {
             buffer.try_push(create_test_metric()).unwrap();
         }

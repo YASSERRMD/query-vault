@@ -1,10 +1,10 @@
 //! WebSocket streaming endpoint for real-time metrics
 
+use axum::extract::ws::{Message, WebSocket};
 use axum::{
     extract::{Path, State, WebSocketUpgrade},
     response::Response,
 };
-use axum::extract::ws::{Message, WebSocket};
 use futures_util::{SinkExt, StreamExt};
 use tokio::sync::broadcast;
 use tracing::{info, warn};
@@ -14,7 +14,7 @@ use crate::models::QueryMetric;
 use crate::state::AppState;
 
 /// GET /api/v1/workspaces/:workspace_id/ws
-/// 
+///
 /// Upgrades connection to WebSocket for real-time metric streaming.
 /// Filters metrics to only those belonging to the specified workspace.
 pub async fn ws_handler(
@@ -54,7 +54,10 @@ async fn handle_socket(socket: WebSocket, state: AppState, workspace_id: Uuid) {
                     }
                 }
                 Err(broadcast::error::RecvError::Lagged(count)) => {
-                    warn!(lagged = count, "Broadcast receiver lagged, some metrics dropped");
+                    warn!(
+                        lagged = count,
+                        "Broadcast receiver lagged, some metrics dropped"
+                    );
                 }
                 Err(broadcast::error::RecvError::Closed) => {
                     break;
@@ -88,7 +91,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, workspace_id: Uuid) {
 }
 
 /// Background task that broadcasts metrics from buffer to WebSocket clients.
-/// 
+///
 /// Runs every 100ms, pops batches from buffer and broadcasts to all subscribers.
 pub async fn broadcast_task(state: AppState) {
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));

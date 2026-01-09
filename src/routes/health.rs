@@ -1,10 +1,6 @@
 //! Health and readiness endpoints
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
 
 use crate::state::AppState;
@@ -37,7 +33,7 @@ pub struct CheckStatus {
 }
 
 /// GET /health
-/// 
+///
 /// Basic health check - returns 200 if the server is running
 pub async fn health() -> Json<HealthResponse> {
     Json(HealthResponse {
@@ -47,14 +43,11 @@ pub async fn health() -> Json<HealthResponse> {
 }
 
 /// GET /ready
-/// 
+///
 /// Readiness check - verifies all dependencies are available
 pub async fn ready(State(state): State<AppState>) -> (StatusCode, Json<ReadinessResponse>) {
     // Check database connection
-    let db_check = match sqlx::query("SELECT 1")
-        .fetch_one(state.db.pool())
-        .await
-    {
+    let db_check = match sqlx::query("SELECT 1").fetch_one(state.db.pool()).await {
         Ok(_) => CheckStatus {
             healthy: true,
             message: "Connected".to_string(),

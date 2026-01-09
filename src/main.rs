@@ -166,8 +166,15 @@ async fn main() {
                 .allow_headers(Any),
         );
 
-    info!("QueryVault v{} starting on {}", env!("CARGO_PKG_VERSION"), listen_addr);
-    info!("Database: {}", database_url.split('@').last().unwrap_or("***"));
+    info!(
+        "QueryVault v{} starting on {}",
+        env!("CARGO_PKG_VERSION"),
+        listen_addr
+    );
+    info!(
+        "Database: {}",
+        database_url.split('@').last().unwrap_or("***")
+    );
     info!("Buffer capacity: {}", buffer_capacity);
     info!("Broadcast capacity: {}", broadcast_capacity);
 

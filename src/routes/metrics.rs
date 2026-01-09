@@ -26,11 +26,13 @@ impl Metrics {
     }
 
     pub fn inc_ingested(&self, count: u64) {
-        self.metrics_ingested_total.fetch_add(count, Ordering::Relaxed);
+        self.metrics_ingested_total
+            .fetch_add(count, Ordering::Relaxed);
     }
 
     pub fn inc_dropped(&self, count: u64) {
-        self.metrics_dropped_total.fetch_add(count, Ordering::Relaxed);
+        self.metrics_dropped_total
+            .fetch_add(count, Ordering::Relaxed);
     }
 
     pub fn inc_requests(&self) {
@@ -70,14 +72,14 @@ pub struct MetricsSnapshot {
 }
 
 /// GET /metrics
-/// 
+///
 /// Returns Prometheus-format metrics
 pub async fn prometheus_metrics(
     axum::extract::State(state): axum::extract::State<crate::state::AppState>,
 ) -> impl IntoResponse {
     let snapshot = state.metrics.get_metrics();
     let buffer_len = state.metrics_buffer.len() as u64;
-    
+
     // Update buffer depth
     state.metrics.set_buffer_depth(buffer_len);
 
@@ -115,7 +117,10 @@ queryvault_info{{version="{}"}} 1
     );
 
     (
-        [(axum::http::header::CONTENT_TYPE, "text/plain; charset=utf-8")],
+        [(
+            axum::http::header::CONTENT_TYPE,
+            "text/plain; charset=utf-8",
+        )],
         output,
     )
 }

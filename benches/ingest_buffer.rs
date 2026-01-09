@@ -1,9 +1,9 @@
 //! Benchmark for MetricsBuffer performance
 
+use chrono::Utc;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use query_vault::buffer::MetricsBuffer;
 use query_vault::models::{QueryMetric, QueryStatus};
-use chrono::Utc;
 use uuid::Uuid;
 
 fn create_metric() -> QueryMetric {

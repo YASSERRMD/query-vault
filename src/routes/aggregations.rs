@@ -41,9 +41,9 @@ pub struct AggregationsResponse {
 }
 
 /// GET /api/v1/workspaces/:workspace_id/aggregations
-/// 
+///
 /// Returns aggregated metrics for the specified workspace and time window.
-/// 
+///
 /// Query parameters:
 /// - window: "5s", "1m", or "5m" (default: "1m")
 /// - from: Start time (default: 1 hour ago)
@@ -96,7 +96,7 @@ pub async fn get_aggregations(
 }
 
 /// GET /api/v1/workspaces/:workspace_id/metrics
-/// 
+///
 /// Returns recent raw metrics for the specified workspace.
 pub async fn get_recent_metrics(
     State(state): State<AppState>,

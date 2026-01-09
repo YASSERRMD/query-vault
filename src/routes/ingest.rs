@@ -20,10 +20,10 @@ fn extract_bearer_token(headers: &HeaderMap) -> Option<&str> {
 }
 
 /// POST /api/v1/metrics/ingest
-/// 
+///
 /// Ingests a batch of query metrics into the buffer.
 /// Requires Bearer token authentication.
-/// 
+///
 /// Returns 202 Accepted with count of ingested metrics.
 pub async fn ingest_metrics(
     State(state): State<AppState>,
@@ -34,10 +34,7 @@ pub async fn ingest_metrics(
     let api_key = extract_bearer_token(&headers)
         .ok_or_else(|| AppError::Unauthorized("Missing Authorization header".into()))?;
 
-    let _workspace = state
-        .db
-        .verify_api_key(api_key)
-        .await?;
+    let _workspace = state.db.verify_api_key(api_key).await?;
 
     let total = payload.metrics.len();
     let mut ingested = 0;

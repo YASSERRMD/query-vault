@@ -26,7 +26,7 @@ pub struct AppState {
 
 impl AppState {
     /// Create new application state
-    /// 
+    ///
     /// # Arguments
     /// * `db` - Database connection
     /// * `buffer_capacity` - Capacity of the metrics buffer

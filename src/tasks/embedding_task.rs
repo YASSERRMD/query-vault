@@ -7,13 +7,10 @@ use std::time::Duration;
 use tracing::{debug, error, info, warn};
 
 /// Background task that embeds queries that haven't been processed yet.
-/// 
+///
 /// Runs every 30 seconds, fetches unembedded queries, generates embeddings,
 /// and stores them in the database for similarity search.
-pub async fn embedding_task(
-    db: Arc<Database>,
-    embedding_service: Option<Arc<EmbeddingService>>,
-) {
+pub async fn embedding_task(db: Arc<Database>, embedding_service: Option<Arc<EmbeddingService>>) {
     let service = match embedding_service {
         Some(s) => s,
         None => {
@@ -23,7 +20,7 @@ pub async fn embedding_task(
     };
 
     let mut interval = tokio::time::interval(Duration::from_secs(30));
-    
+
     info!("Embedding task started (30s interval)");
 
     loop {
@@ -63,7 +60,12 @@ pub async fn embedding_task(
                 match service.embed_query(&query_text) {
                     Ok(embedding) => {
                         if let Err(e) = db
-                            .insert_query_embedding(workspace_id, &query_hash, &query_text, &embedding)
+                            .insert_query_embedding(
+                                workspace_id,
+                                &query_hash,
+                                &query_text,
+                                &embedding,
+                            )
                             .await
                         {
                             error!(error = %e, query_hash = %query_hash, "Failed to store embedding");

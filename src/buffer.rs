@@ -5,7 +5,7 @@ use crossbeam::queue::ArrayQueue;
 use std::sync::Arc;
 
 /// A lock-free metrics buffer backed by crossbeam's ArrayQueue.
-/// 
+///
 /// This buffer is designed for high-throughput ingestion (60K+ req/s)
 /// with minimal contention between producers and consumer.
 #[derive(Clone)]
@@ -16,7 +16,7 @@ pub struct MetricsBuffer {
 
 impl MetricsBuffer {
     /// Create a new buffer with the specified capacity.
-    /// 
+    ///
     /// # Arguments
     /// * `capacity` - Maximum number of metrics the buffer can hold
     pub fn new(capacity: usize) -> Self {
@@ -27,14 +27,14 @@ impl MetricsBuffer {
     }
 
     /// Try to push a metric into the buffer.
-    /// 
+    ///
     /// Returns `Ok(())` if successful, or `Err(metric)` if the buffer is full.
     pub fn try_push(&self, metric: QueryMetric) -> Result<(), QueryMetric> {
         self.queue.push(metric)
     }
 
     /// Pop a batch of metrics from the buffer.
-    /// 
+    ///
     /// Returns up to `max` metrics, or fewer if the buffer has less.
     pub fn pop_batch(&self, max: usize) -> Vec<QueryMetric> {
         let mut batch = Vec::with_capacity(max.min(self.queue.len()));
@@ -88,10 +88,10 @@ mod tests {
     fn test_push_and_pop() {
         let buffer = MetricsBuffer::new(100);
         let metric = make_metric();
-        
+
         assert!(buffer.try_push(metric).is_ok());
         assert_eq!(buffer.len(), 1);
-        
+
         let batch = buffer.pop_batch(10);
         assert_eq!(batch.len(), 1);
         assert!(buffer.is_empty());
@@ -100,7 +100,7 @@ mod tests {
     #[test]
     fn test_buffer_full() {
         let buffer = MetricsBuffer::new(2);
-        
+
         assert!(buffer.try_push(make_metric()).is_ok());
         assert!(buffer.try_push(make_metric()).is_ok());
         assert!(buffer.try_push(make_metric()).is_err());
@@ -109,11 +109,11 @@ mod tests {
     #[test]
     fn test_pop_batch_max() {
         let buffer = MetricsBuffer::new(100);
-        
+
         for _ in 0..50 {
             buffer.try_push(make_metric()).unwrap();
         }
-        
+
         let batch = buffer.pop_batch(20);
         assert_eq!(batch.len(), 20);
         assert_eq!(buffer.len(), 30);
