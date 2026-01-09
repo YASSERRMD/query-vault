@@ -1,0 +1,48 @@
+version: '3.9'
+
+services:
+  postgres:
+    image: timescale/timescaledb-ha:pg15-latest
+    container_name: queryvault-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: queryvault
+    ports:
+      - "5432:5432"
+    volumes:
+      - queryvault-data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+        -c shared_preload_libraries=timescaledb,pg_stat_statements
+        -c timescaledb.telemetry_level=off
+
+  queryvault:
+    build: .
+    container_name: queryvault
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/queryvault
+      LISTEN_ADDR: 0.0.0.0:3000
+      BUFFER_CAPACITY: "100000"
+      BROADCAST_CAPACITY: "10000"
+      RUST_LOG: query_vault=info,tower_http=info
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  queryvault-data:
