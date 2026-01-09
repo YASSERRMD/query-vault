@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="QueryVault Logo" width="400">
+</p>
+
 # QueryVault
 
 A high-performance, self-hosted, distributed query analytics platform built in Rust.

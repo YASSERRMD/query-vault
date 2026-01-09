@@ -7,7 +7,7 @@
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS timescaledb;
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Note: pgvector is optional, installed via 002_embeddings.sql if available
 
 -- =============================================================================
 -- WORKSPACES
