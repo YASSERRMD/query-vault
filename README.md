@@ -10,7 +10,7 @@ QueryVault provides real-time visibility into your SQL query performance with su
 
 ## Features
 
-- **High-Throughput Ingestion** - Lock-free buffer achieving 60K+ req/s on a single node
+- **High-Throughput Ingestion** - Lock-free buffer using crossbeam for concurrent writes
 - **Real-Time Streaming** - WebSocket-based live metric updates
 - **Time-Series Analytics** - TimescaleDB continuous aggregates (5s/1m/5m windows)
 - **Vector Similarity Search** - pgvector-powered query deduplication and pattern matching
