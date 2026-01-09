@@ -246,6 +246,283 @@ impl Database {
 
         Ok(result.rows_affected())
     }
+
+    // =========================================================================
+    // EMBEDDING METHODS
+    // =========================================================================
+
+    /// Insert or update a query embedding
+    pub async fn insert_query_embedding(
+        &self,
+        workspace_id: Uuid,
+        query_hash: &str,
+        sql_query: &str,
+        embedding: &[f32],
+    ) -> Result<()> {
+        // Convert embedding to pgvector format string
+        let embedding_str = format!(
+            "[{}]",
+            embedding.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+        );
+
+        sqlx::query(
+            r#"
+            INSERT INTO query_embeddings (workspace_id, query_hash, sql_query, embedding)
+            VALUES ($1, $2, $3, $4::vector)
+            ON CONFLICT (workspace_id, query_hash) 
+            DO UPDATE SET embedding = $4::vector, updated_at = NOW()
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(query_hash)
+        .bind(sql_query)
+        .bind(&embedding_str)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Check if a query embedding exists
+    pub async fn embedding_exists(&self, workspace_id: Uuid, query_hash: &str) -> Result<bool> {
+        let row = sqlx::query(
+            r#"
+            SELECT EXISTS(
+                SELECT 1 FROM query_embeddings 
+                WHERE workspace_id = $1 AND query_hash = $2
+            ) as exists
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(query_hash)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(row.get::<bool, _>("exists"))
+    }
+
+    /// Search for similar queries using cosine similarity
+    pub async fn search_similar_queries(
+        &self,
+        workspace_id: Uuid,
+        embedding: &[f32],
+        limit: i32,
+        threshold: f32,
+    ) -> Result<Vec<SimilarQuery>> {
+        let embedding_str = format!(
+            "[{}]",
+            embedding.iter().map(|v| v.to_string()).collect::<Vec<_>>().join(",")
+        );
+
+        let rows = sqlx::query(
+            r#"
+            SELECT 
+                id,
+                sql_query,
+                1 - (embedding <=> $2::vector) as similarity
+            FROM query_embeddings
+            WHERE workspace_id = $1
+                AND 1 - (embedding <=> $2::vector) >= $4
+            ORDER BY embedding <=> $2::vector
+            LIMIT $3
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(&embedding_str)
+        .bind(limit)
+        .bind(threshold)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let results = rows
+            .into_iter()
+            .map(|row| SimilarQuery {
+                id: row.get("id"),
+                sql_query: row.get("sql_query"),
+                similarity: row.get("similarity"),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
+    /// Get queries that haven't been embedded yet
+    pub async fn get_unembedded_queries(
+        &self,
+        workspace_id: Uuid,
+        limit: i64,
+    ) -> Result<Vec<(String, String)>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT DISTINCT query_text, 
+                   md5(lower(regexp_replace(trim(query_text), '\s+', ' ', 'g'))) as query_hash
+            FROM query_metrics m
+            WHERE m.workspace_id = $1
+                AND NOT EXISTS (
+                    SELECT 1 FROM query_embeddings e 
+                    WHERE e.workspace_id = m.workspace_id 
+                    AND e.query_hash = md5(lower(regexp_replace(trim(m.query_text), '\s+', ' ', 'g')))
+                )
+            LIMIT $2
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let results = rows
+            .into_iter()
+            .map(|row| (row.get::<String, _>("query_text"), row.get::<String, _>("query_hash")))
+            .collect();
+
+        Ok(results)
+    }
+
+    // =========================================================================
+    // ANOMALY METHODS
+    // =========================================================================
+
+    /// Get metrics statistics for anomaly detection
+    pub async fn get_metrics_stats(
+        &self,
+        workspace_id: Uuid,
+        limit: i64,
+    ) -> Result<MetricsStats> {
+        let row = sqlx::query(
+            r#"
+            SELECT 
+                AVG(duration_ms)::DOUBLE PRECISION as mean,
+                STDDEV(duration_ms)::DOUBLE PRECISION as stddev,
+                COUNT(*) as count
+            FROM (
+                SELECT duration_ms 
+                FROM query_metrics 
+                WHERE workspace_id = $1 
+                ORDER BY created_at DESC 
+                LIMIT $2
+            ) recent
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(limit)
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(MetricsStats {
+            mean: row.get::<Option<f64>, _>("mean").unwrap_or(0.0),
+            stddev: row.get::<Option<f64>, _>("stddev").unwrap_or(0.0),
+            count: row.get::<i64, _>("count"),
+        })
+    }
+
+    /// Get recent metrics with high duration for anomaly detection
+    pub async fn get_recent_metrics_for_anomaly(
+        &self,
+        workspace_id: Uuid,
+        since_seconds: i64,
+        threshold_ms: i64,
+    ) -> Result<Vec<QueryMetric>> {
+        let rows = sqlx::query(
+            r#"
+            SELECT 
+                id, workspace_id, service_id, query_text, status,
+                duration_ms, rows_affected, error_message,
+                started_at, completed_at, tags
+            FROM query_metrics
+            WHERE workspace_id = $1
+                AND created_at > NOW() - make_interval(secs => $2)
+                AND duration_ms > $3
+            ORDER BY duration_ms DESC
+            "#,
+        )
+        .bind(workspace_id)
+        .bind(since_seconds)
+        .bind(threshold_ms)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let metrics = rows
+            .into_iter()
+            .map(|row| QueryMetric {
+                id: row.get("id"),
+                workspace_id: row.get("workspace_id"),
+                service_id: row.get("service_id"),
+                query_text: row.get("query_text"),
+                status: string_to_status(row.get("status")),
+                duration_ms: row.get::<i64, _>("duration_ms") as u64,
+                rows_affected: row.get("rows_affected"),
+                error_message: row.get("error_message"),
+                started_at: row.get("started_at"),
+                completed_at: row.get("completed_at"),
+                tags: row.get::<Option<Vec<String>>, _>("tags").unwrap_or_default(),
+            })
+            .collect();
+
+        Ok(metrics)
+    }
+
+    /// Record a detected anomaly
+    pub async fn insert_anomaly(&self, anomaly: &QueryAnomaly) -> Result<()> {
+        sqlx::query(
+            r#"
+            INSERT INTO query_anomalies (
+                workspace_id, service_id, metric_id, query_text,
+                duration_ms, mean_duration_ms, stddev_duration_ms, z_score
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            "#,
+        )
+        .bind(anomaly.workspace_id)
+        .bind(anomaly.service_id)
+        .bind(anomaly.metric_id)
+        .bind(&anomaly.query_text)
+        .bind(anomaly.duration_ms)
+        .bind(anomaly.mean_duration_ms)
+        .bind(anomaly.stddev_duration_ms)
+        .bind(anomaly.z_score)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Get all workspace IDs
+    pub async fn get_all_workspace_ids(&self) -> Result<Vec<Uuid>> {
+        let rows = sqlx::query("SELECT id FROM workspaces")
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(|r| r.get("id")).collect())
+    }
+}
+
+/// Similar query result from vector search
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SimilarQuery {
+    pub id: Uuid,
+    pub sql_query: String,
+    pub similarity: f64,
+}
+
+/// Metrics statistics for anomaly detection
+#[derive(Debug, Clone)]
+pub struct MetricsStats {
+    pub mean: f64,
+    pub stddev: f64,
+    pub count: i64,
+}
+
+/// Query anomaly record
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct QueryAnomaly {
+    pub workspace_id: Uuid,
+    pub service_id: Uuid,
+    pub metric_id: Uuid,
+    pub query_text: String,
+    pub duration_ms: i64,
+    pub mean_duration_ms: i64,
+    pub stddev_duration_ms: i64,
+    pub z_score: f64,
 }
 
 /// Aggregated metric from continuous aggregate views
