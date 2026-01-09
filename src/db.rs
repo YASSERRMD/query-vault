@@ -38,25 +38,30 @@ impl Database {
 
     /// Verify an API key and return the associated workspace
     pub async fn verify_api_key(&self, api_key: &str) -> Result<Workspace> {
-        let workspace = sqlx::query_as!(
-            Workspace,
+        let row = sqlx::query(
             r#"
             SELECT id, name, api_key, created_at, updated_at
             FROM workspaces
             WHERE api_key = $1
             "#,
-            api_key
         )
+        .bind(api_key)
         .fetch_optional(&self.pool)
         .await?
         .ok_or_else(|| AppError::Unauthorized("Invalid API key".into()))?;
 
-        Ok(workspace)
+        Ok(Workspace {
+            id: row.get("id"),
+            name: row.get("name"),
+            api_key: row.get("api_key"),
+            created_at: row.get("created_at"),
+            updated_at: row.get("updated_at"),
+        })
     }
 
     /// Insert a single metric
     pub async fn insert_metric(&self, metric: &QueryMetric) -> Result<()> {
-        sqlx::query!(
+        sqlx::query(
             r#"
             INSERT INTO query_metrics (
                 id, workspace_id, service_id, query_text, status,
@@ -64,18 +69,18 @@ impl Database {
                 started_at, completed_at, tags
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             "#,
-            metric.id,
-            metric.workspace_id,
-            metric.service_id,
-            metric.query_text,
-            status_to_string(&metric.status),
-            metric.duration_ms as i64,
-            metric.rows_affected,
-            metric.error_message,
-            metric.started_at,
-            metric.completed_at,
-            &metric.tags,
         )
+        .bind(metric.id)
+        .bind(metric.workspace_id)
+        .bind(metric.service_id)
+        .bind(&metric.query_text)
+        .bind(status_to_string(&metric.status))
+        .bind(metric.duration_ms as i64)
+        .bind(metric.rows_affected)
+        .bind(&metric.error_message)
+        .bind(metric.started_at)
+        .bind(metric.completed_at)
+        .bind(&metric.tags)
         .execute(&self.pool)
         .await?;
 
@@ -92,7 +97,7 @@ impl Database {
         let mut inserted = 0;
 
         for metric in metrics {
-            match sqlx::query!(
+            match sqlx::query(
                 r#"
                 INSERT INTO query_metrics (
                     id, workspace_id, service_id, query_text, status,
@@ -100,18 +105,18 @@ impl Database {
                     started_at, completed_at, tags
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 "#,
-                metric.id,
-                metric.workspace_id,
-                metric.service_id,
-                metric.query_text,
-                status_to_string(&metric.status),
-                metric.duration_ms as i64,
-                metric.rows_affected,
-                metric.error_message,
-                metric.started_at,
-                metric.completed_at,
-                &metric.tags,
             )
+            .bind(metric.id)
+            .bind(metric.workspace_id)
+            .bind(metric.service_id)
+            .bind(&metric.query_text)
+            .bind(status_to_string(&metric.status))
+            .bind(metric.duration_ms as i64)
+            .bind(metric.rows_affected)
+            .bind(&metric.error_message)
+            .bind(metric.started_at)
+            .bind(metric.completed_at)
+            .bind(&metric.tags)
             .execute(&mut *tx)
             .await
             {
@@ -132,7 +137,7 @@ impl Database {
         workspace_id: Uuid,
         limit: i64,
     ) -> Result<Vec<QueryMetric>> {
-        let rows = sqlx::query!(
+        let rows = sqlx::query(
             r#"
             SELECT 
                 id, workspace_id, service_id, query_text, status,
@@ -143,26 +148,26 @@ impl Database {
             ORDER BY created_at DESC
             LIMIT $2
             "#,
-            workspace_id,
-            limit
         )
+        .bind(workspace_id)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await?;
 
         let metrics = rows
             .into_iter()
             .map(|row| QueryMetric {
-                id: row.id,
-                workspace_id: row.workspace_id,
-                service_id: row.service_id,
-                query_text: row.query_text,
-                status: string_to_status(&row.status),
-                duration_ms: row.duration_ms as u64,
-                rows_affected: row.rows_affected,
-                error_message: row.error_message,
-                started_at: row.started_at,
-                completed_at: row.completed_at,
-                tags: row.tags.unwrap_or_default(),
+                id: row.get("id"),
+                workspace_id: row.get("workspace_id"),
+                service_id: row.get("service_id"),
+                query_text: row.get("query_text"),
+                status: string_to_status(row.get("status")),
+                duration_ms: row.get::<i64, _>("duration_ms") as u64,
+                rows_affected: row.get("rows_affected"),
+                error_message: row.get("error_message"),
+                started_at: row.get("started_at"),
+                completed_at: row.get("completed_at"),
+                tags: row.get::<Option<Vec<String>>, _>("tags").unwrap_or_default(),
             })
             .collect();
 
@@ -229,13 +234,13 @@ impl Database {
 
     /// Manually prune old data (backup for TimescaleDB retention policies)
     pub async fn prune_old_metrics(&self, older_than_days: i32) -> Result<u64> {
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
             DELETE FROM query_metrics
             WHERE created_at < NOW() - make_interval(days => $1)
             "#,
-            older_than_days
         )
+        .bind(older_than_days)
         .execute(&self.pool)
         .await?;
 
