@@ -60,6 +60,7 @@ impl Database {
     }
 
     /// Insert a single metric
+    #[allow(dead_code)]
     pub async fn insert_metric(&self, metric: &QueryMetric) -> Result<()> {
         sqlx::query(
             r#"
@@ -295,6 +296,7 @@ impl Database {
     }
 
     /// Check if a query embedding exists
+    #[allow(dead_code)]
     pub async fn embedding_exists(&self, workspace_id: Uuid, query_hash: &str) -> Result<bool> {
         let row = sqlx::query(
             r#"

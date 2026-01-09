@@ -50,6 +50,7 @@ pub struct QueryMetric {
 
 impl QueryMetric {
     /// Create a new QueryMetric with generated ID
+    #[allow(dead_code)]
     pub fn new(
         workspace_id: Uuid,
         service_id: Uuid,
@@ -86,6 +87,7 @@ pub struct Workspace {
 
 /// Service represents an application within a workspace
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Service {
     pub id: Uuid,
     pub workspace_id: Uuid,
@@ -112,6 +114,7 @@ pub struct IngestResponse {
 
 /// Health check response
 #[derive(Debug, Clone, Serialize)]
+#[allow(dead_code)]
 pub struct HealthResponse {
     pub status: &'static str,
     pub version: &'static str,

@@ -9,6 +9,7 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 /// Anomaly event for WebSocket broadcast
+#[allow(dead_code)]
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct AnomalyEvent {
     pub event_type: &'static str,

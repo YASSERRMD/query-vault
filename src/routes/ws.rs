@@ -10,7 +10,6 @@ use tokio::sync::broadcast;
 use tracing::{info, warn};
 use uuid::Uuid;
 
-use crate::models::QueryMetric;
 use crate::state::AppState;
 
 /// GET /api/v1/workspaces/:workspace_id/ws
@@ -47,7 +46,7 @@ async fn handle_socket(socket: WebSocket, state: AppState, workspace_id: Uuid) {
                             }
                         };
 
-                        if sender.send(Message::Text(json.into())).await.is_err() {
+                        if sender.send(Message::Text(json)).await.is_err() {
                             // Client disconnected
                             break;
                         }

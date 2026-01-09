@@ -1,9 +1,7 @@
 //! Prometheus metrics endpoint
 
 use axum::response::IntoResponse;
-use parking_lot::RwLock;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
 
 /// Application metrics for Prometheus
 #[derive(Default)]
@@ -20,6 +18,7 @@ pub struct Metrics {
     ws_connections: AtomicU64,
 }
 
+#[allow(dead_code)]
 impl Metrics {
     pub fn new() -> Self {
         Self::default()
@@ -63,6 +62,7 @@ impl Metrics {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub struct MetricsSnapshot {
     pub metrics_ingested_total: u64,
     pub metrics_dropped_total: u64,

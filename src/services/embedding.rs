@@ -8,7 +8,6 @@
 //! For now, we provide a stub that can be replaced with real ONNX inference.
 
 use std::path::Path;
-use std::sync::Arc;
 use tracing::{info, warn};
 
 use crate::error::{AppError, Result};
@@ -71,6 +70,7 @@ impl EmbeddingService {
     /// Embed a batch of queries
     ///
     /// Returns normalized embedding vectors
+    #[allow(dead_code)]
     pub fn embed_batch(&self, queries: &[&str]) -> Result<Vec<Vec<f32>>> {
         queries.iter().map(|q| self.embed_query(q)).collect()
     }
@@ -111,12 +111,14 @@ impl EmbeddingService {
     }
 
     /// Get the embedding dimension
+    #[allow(dead_code)]
     pub fn embedding_dim(&self) -> usize {
         self.embedding_dim
     }
 }
 
 /// Compute cosine similarity between two normalized vectors
+#[allow(dead_code)]
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() {
         return 0.0;
@@ -135,6 +137,7 @@ pub fn normalize_query(query: &str) -> String {
 }
 
 /// Compute hash of normalized query
+#[allow(dead_code)]
 pub fn query_hash(query: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};

@@ -173,7 +173,7 @@ async fn main() {
     );
     info!(
         "Database: {}",
-        database_url.split('@').last().unwrap_or("***")
+        database_url.split('@').next_back().unwrap_or("***")
     );
     info!("Buffer capacity: {}", buffer_capacity);
     info!("Broadcast capacity: {}", broadcast_capacity);

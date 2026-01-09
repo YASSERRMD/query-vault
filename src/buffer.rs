@@ -29,6 +29,7 @@ impl MetricsBuffer {
     /// Try to push a metric into the buffer.
     ///
     /// Returns `Ok(())` if successful, or `Err(metric)` if the buffer is full.
+    #[allow(clippy::result_large_err)]
     pub fn try_push(&self, metric: QueryMetric) -> Result<(), QueryMetric> {
         self.queue.push(metric)
     }
@@ -55,12 +56,14 @@ impl MetricsBuffer {
 
     /// Check if the buffer is empty.
     #[inline]
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.queue.is_empty()
     }
 
     /// Get the buffer capacity.
     #[inline]
+    #[allow(dead_code)]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
