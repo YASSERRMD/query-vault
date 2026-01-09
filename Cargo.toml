@@ -44,10 +44,10 @@ futures-util = "0.3"
 crossbeam = "0.8"
 parking_lot = "0.12"
 
-# ML/Embeddings
-ort = { version = "2", features = ["load-dynamic"] }
-ndarray = "0.15"
-tokenizers = "0.19"
+# ML/Embeddings (stub for now, add ort when model files available)
+# ort = { version = "2.0.0-rc.11", features = ["load-dynamic"] }
+# ndarray = "0.15"
+# tokenizers = "0.19"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }

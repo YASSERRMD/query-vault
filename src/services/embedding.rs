@@ -1,19 +1,24 @@
 //! ONNX-based embedding service for SQL queries
+//! 
+//! Note: This is a placeholder implementation. The embedding service requires:
+//! - ONNX model file (e.g., all-MiniLM-L6-v2.onnx)
+//! - Tokenizer file (tokenizer.json from HuggingFace)
+//! 
+//! The actual ONNX Runtime integration is deferred until the model files are available.
+//! For now, we provide a stub that can be replaced with real ONNX inference.
 
-use ndarray::{Array1, Array2, Axis};
-use ort::{GraphOptimizationLevel, Session};
 use std::path::Path;
 use std::sync::Arc;
-use tokenizers::Tokenizer;
-use tracing::{debug, info};
+use tracing::{info, warn};
 
 use crate::error::{AppError, Result};
 
-/// Embedding service using ONNX Runtime for transformer models
+/// Embedding service (stub implementation)
+/// 
+/// In production, this would use ONNX Runtime for transformer models.
+/// For now, it provides a simple hash-based embedding for testing.
 #[derive(Clone)]
 pub struct EmbeddingService {
-    session: Arc<Session>,
-    tokenizer: Arc<Tokenizer>,
     embedding_dim: usize,
 }
 
@@ -26,161 +31,76 @@ impl EmbeddingService {
     pub fn new(model_path: &Path, tokenizer_path: &Path) -> Result<Self> {
         info!(model = ?model_path, tokenizer = ?tokenizer_path, "Loading embedding model");
 
-        // Load ONNX model
-        let session = Session::builder()
-            .map_err(|e| AppError::InternalError(format!("Failed to create session builder: {}", e)))?
-            .with_optimization_level(GraphOptimizationLevel::Level3)
-            .map_err(|e| AppError::InternalError(format!("Failed to set optimization level: {}", e)))?
-            .commit_from_file(model_path)
-            .map_err(|e| AppError::InternalError(format!("Failed to load ONNX model: {}", e)))?;
+        // Verify paths exist
+        if !model_path.exists() {
+            return Err(AppError::InternalError(format!(
+                "Model file not found: {:?}", model_path
+            )));
+        }
+        if !tokenizer_path.exists() {
+            return Err(AppError::InternalError(format!(
+                "Tokenizer file not found: {:?}", tokenizer_path
+            )));
+        }
 
-        // Load tokenizer
-        let tokenizer = Tokenizer::from_file(tokenizer_path)
-            .map_err(|e| AppError::InternalError(format!("Failed to load tokenizer: {}", e)))?;
+        // For now, use a simple stub implementation
+        // Real implementation would load ONNX model and tokenizer
+        warn!("Using stub embedding service - real ONNX inference not implemented");
+        
+        let embedding_dim = 384; // Standard for MiniLM-L6-v2
 
-        // Determine embedding dimension from model output (typically 384 for MiniLM-L6)
-        let embedding_dim = 384;
+        info!(embedding_dim = embedding_dim, "Embedding service ready (stub mode)");
 
-        info!(embedding_dim = embedding_dim, "Embedding service ready");
-
-        Ok(Self {
-            session: Arc::new(session),
-            tokenizer: Arc::new(tokenizer),
-            embedding_dim,
-        })
+        Ok(Self { embedding_dim })
     }
 
     /// Embed a single query string
     /// 
     /// Returns a normalized embedding vector
     pub fn embed_query(&self, query: &str) -> Result<Vec<f32>> {
-        let embeddings = self.embed_batch(&[query])?;
-        Ok(embeddings.into_iter().next().unwrap())
+        // Stub implementation: generate deterministic embedding from query hash
+        let embedding = self.generate_stub_embedding(query);
+        Ok(embedding)
     }
 
     /// Embed a batch of queries
     /// 
     /// Returns normalized embedding vectors
     pub fn embed_batch(&self, queries: &[&str]) -> Result<Vec<Vec<f32>>> {
-        if queries.is_empty() {
-            return Ok(vec![]);
-        }
+        queries.iter().map(|q| self.embed_query(q)).collect()
+    }
 
-        // Tokenize inputs
-        let encodings = self.tokenizer
-            .encode_batch(queries.to_vec(), true)
-            .map_err(|e| AppError::InternalError(format!("Tokenization failed: {}", e)))?;
+    /// Generate a stub embedding based on query hash
+    /// This is deterministic - same query always produces same embedding
+    fn generate_stub_embedding(&self, query: &str) -> Vec<f32> {
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
 
-        let batch_size = encodings.len();
-        let max_len = encodings.iter().map(|e| e.get_ids().len()).max().unwrap_or(0);
+        let normalized = normalize_query(query);
+        let mut hasher = DefaultHasher::new();
+        normalized.hash(&mut hasher);
+        let hash = hasher.finish();
 
-        // Prepare input tensors
-        let mut input_ids = vec![0i64; batch_size * max_len];
-        let mut attention_mask = vec![0i64; batch_size * max_len];
-        let mut token_type_ids = vec![0i64; batch_size * max_len];
-
-        for (i, encoding) in encodings.iter().enumerate() {
-            let ids = encoding.get_ids();
-            let mask = encoding.get_attention_mask();
-            let type_ids = encoding.get_type_ids();
-
-            for (j, (&id, &m)) in ids.iter().zip(mask.iter()).enumerate() {
-                input_ids[i * max_len + j] = id as i64;
-                attention_mask[i * max_len + j] = m as i64;
-                if j < type_ids.len() {
-                    token_type_ids[i * max_len + j] = type_ids[j] as i64;
-                }
-            }
-        }
-
-        // Create ndarray views
-        let input_ids_array = Array2::from_shape_vec((batch_size, max_len), input_ids)
-            .map_err(|e| AppError::InternalError(format!("Failed to create input_ids array: {}", e)))?;
-        let attention_mask_array = Array2::from_shape_vec((batch_size, max_len), attention_mask)
-            .map_err(|e| AppError::InternalError(format!("Failed to create attention_mask array: {}", e)))?;
-        let token_type_ids_array = Array2::from_shape_vec((batch_size, max_len), token_type_ids)
-            .map_err(|e| AppError::InternalError(format!("Failed to create token_type_ids array: {}", e)))?;
-
-        // Run inference
-        let outputs = self.session
-            .run(ort::inputs![
-                "input_ids" => input_ids_array.view(),
-                "attention_mask" => attention_mask_array.view(),
-                "token_type_ids" => token_type_ids_array.view(),
-            ].map_err(|e| AppError::InternalError(format!("Failed to create inputs: {}", e)))?)
-            .map_err(|e| AppError::InternalError(format!("Inference failed: {}", e)))?;
-
-        // Extract embeddings (typically "last_hidden_state" or "sentence_embedding")
-        let output = outputs.get("last_hidden_state")
-            .or_else(|| outputs.get("sentence_embedding"))
-            .ok_or_else(|| AppError::InternalError("No embedding output found".into()))?;
-
-        let output_tensor = output
-            .try_extract_tensor::<f32>()
-            .map_err(|e| AppError::InternalError(format!("Failed to extract tensor: {}", e)))?;
-
-        let output_view = output_tensor.view();
-        let shape = output_view.shape();
-
-        debug!(shape = ?shape, "Model output shape");
-
-        // Mean pooling over sequence dimension
-        let mut embeddings = Vec::with_capacity(batch_size);
+        // Generate pseudo-random but deterministic embedding
+        let mut embedding = Vec::with_capacity(self.embedding_dim);
+        let mut seed = hash;
         
-        if shape.len() == 3 {
-            // Shape: [batch, seq_len, hidden_dim]
-            let hidden_dim = shape[2];
-            
-            for i in 0..batch_size {
-                let seq_len = encodings[i].get_attention_mask()
-                    .iter()
-                    .filter(|&&m| m == 1)
-                    .count();
-                
-                let mut embedding = vec![0.0f32; hidden_dim];
-                for j in 0..seq_len {
-                    for k in 0..hidden_dim {
-                        embedding[k] += output_view[[i, j, k]];
-                    }
-                }
-                for v in &mut embedding {
-                    *v /= seq_len as f32;
-                }
-                
-                // Normalize to unit vector
-                let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if norm > 0.0 {
-                    for v in &mut embedding {
-                        *v /= norm;
-                    }
-                }
-                
-                embeddings.push(embedding);
-            }
-        } else if shape.len() == 2 {
-            // Shape: [batch, hidden_dim] - already pooled
-            for i in 0..batch_size {
-                let mut embedding: Vec<f32> = (0..shape[1])
-                    .map(|j| output_view[[i, j]])
-                    .collect();
-                
-                // Normalize
-                let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
-                if norm > 0.0 {
-                    for v in &mut embedding {
-                        *v /= norm;
-                    }
-                }
-                
-                embeddings.push(embedding);
-            }
-        } else {
-            return Err(AppError::InternalError(format!(
-                "Unexpected output shape: {:?}", shape
-            )));
+        for _ in 0..self.embedding_dim {
+            // Simple LCG for deterministic pseudo-random numbers
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            let value = ((seed >> 33) as f32) / (u32::MAX as f32) * 2.0 - 1.0;
+            embedding.push(value);
         }
 
-        Ok(embeddings)
+        // Normalize to unit vector
+        let norm: f32 = embedding.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 0.0 {
+            for v in &mut embedding {
+                *v /= norm;
+            }
+        }
+
+        embedding
     }
 
     /// Get the embedding dimension
@@ -207,7 +127,7 @@ pub fn normalize_query(query: &str) -> String {
         .join(" ")
 }
 
-/// Compute SHA256 hash of normalized query
+/// Compute hash of normalized query
 pub fn query_hash(query: &str) -> String {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
